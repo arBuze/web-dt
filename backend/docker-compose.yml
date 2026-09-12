@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: timescale/timescaledb
+  mqtt:
+    image: eclipse-mosquitto
+  redis:
+    image: redis
+  backend:
+    build: .
