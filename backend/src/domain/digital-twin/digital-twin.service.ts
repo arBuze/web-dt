@@ -2,11 +2,21 @@ import { EventEmitter } from "node:events";
 
 import type { TelemetryPoint } from "./digital-twin.types.js";
 
+export type TelemetryUpdateListener = (point: TelemetryPoint) => void;
+
 export class DigitalTwinService extends EventEmitter {
   private readonly state = new Map<
     string,
     Map<string, TelemetryPoint>
   >();
+
+  public onUpdated(listener: TelemetryUpdateListener): void {
+    this.on("updated", listener);
+  }
+
+  public offUpdated(listener: TelemetryUpdateListener): void {
+    this.off("updated", listener);
+  }
 
   public ingest(point: TelemetryPoint): void {
     let componentState = this.state.get(point.componentKey);
@@ -15,13 +25,13 @@ export class DigitalTwinService extends EventEmitter {
       componentState = new Map();
       this.state.set(
         point.componentKey,
-        componentState,
+        componentState
       );
     }
 
     componentState.set(
       point.parameterKey,
-      point,
+      point
     );
 
     this.emit("updated", point);

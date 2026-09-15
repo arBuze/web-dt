@@ -52,4 +52,36 @@ export class TelemetryRepository {
       },
     });
   }
+
+  public async findHistory(
+    parameterId: string,
+    dateFrom: Date,
+    dateTo: Date,
+    limit: number,
+  ) {
+    return prisma.telemetryReading.findMany({
+      where: {
+        parameterId,
+        timestamp: {
+          gte: dateFrom,
+          lte: dateTo,
+        },
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+      take: limit,
+      select: {
+        timestamp: true,
+        receivedAt: true,
+        numberValue: true,
+        booleanValue: true,
+        stringValue: true,
+        rawValue: true,
+        quality: true,
+        protocol: true,
+        sourceAddress: true,
+      },
+    });
+  }
 }

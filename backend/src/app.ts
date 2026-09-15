@@ -1,11 +1,15 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 
+import type { TelemetryHistoryService } from "./application/telemetry-history.service.js";
+
 import { checkDatabaseConnection } from "./infrastructure/database/prisma.js";
 import { DigitalTwinService } from "./domain/digital-twin/digital-twin.service.js";
+import { registerTelemetryRoutes } from "./api/routes/telemetry.route.js";
 
 interface AppDependencies {
   digitalTwin: DigitalTwinService;
+  telemetryHistory: TelemetryHistoryService;
 }
 
 export async function buildApp(dependencies: AppDependencies) {
@@ -66,6 +70,11 @@ export async function buildApp(dependencies: AppDependencies) {
     async () => {
       return digitalTwin.getSnapshot();
     },
+  );
+
+  await registerTelemetryRoutes(
+    app,
+    dependencies.telemetryHistory
   );
 
   return app;

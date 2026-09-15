@@ -6,22 +6,47 @@ import { TelemetryRepository } from "./infrastructure/repositories/telemetry.rep
 import { DataSourceRepository } from "./infrastructure/repositories/data-sourse.repository.js";
 import { TelemetryService } from "./domain/telemetry/telemetry.service.js";
 import { DataAcquisitionService } from "./application/data-acquisition.service.js";
+import { ParameterRepository } from "./infrastructure/repositories/parameter.repository.js";
+import { TelemetryHistoryService } from "./application/telemetry-history.service.js";
+import { RealtimeGateway } from "./api/realtime/realtime.gateway.js";
 
 async function main() {
   const digitalTwin = new DigitalTwinService();
   const telemetryRepository = new TelemetryRepository();
+  const parameterRepository = new ParameterRepository();
   const dataSourceRepository = new DataSourceRepository();
   const telemetryService = new TelemetryService(
     digitalTwin,
-    telemetryRepository,
+    telemetryRepository
+  );
+  const telemetryHistory = new TelemetryHistoryService(
+    parameterRepository,
+    telemetryRepository
   );
   const dataAcquisition = new DataAcquisitionService(
     dataSourceRepository,
-    telemetryService,
+    telemetryService
   );
 
-  const app = await buildApp({ digitalTwin });
+  const app = await buildApp({
+    digitalTwin,
+    telemetryHistory,
+  });
 
+  const realtime = new RealtimeGateway(
+    app,
+    digitalTwin,
+    env.FRONTEND_ORIGIN
+  );
+
+  realtime.start();
+
+  app.addHook(
+    "preClose",
+    async () => {
+      realtime.stop();
+    }
+  );
   app.addHook(
     "onClose",
     async () => {
@@ -29,16 +54,17 @@ async function main() {
       await dataAcquisition.stop();
       app.log.info("Disconnecting from database...");
       await prisma.$disconnect();
-    },
+    }
   );
+
+  await dataAcquisition.start();
+  app.log.info("Data acquisition started");
 
   await app.listen({
     host: env.HOST,
     port: env.PORT,
   });
-
-  await dataAcquisition.start();
-  app.log.info("Data acquisition started");
+  app.log.info("Application started");
 }
 
 main().catch(
