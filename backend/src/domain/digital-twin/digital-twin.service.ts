@@ -9,12 +9,12 @@ export class DigitalTwinService extends EventEmitter {
   >();
 
   public ingest(point: TelemetryPoint): void {
-    let componentState = this.state.get(point.componentId);
+    let componentState = this.state.get(point.componentKey);
 
     if (!componentState) {
       componentState = new Map();
       this.state.set(
-        point.componentId,
+        point.componentKey,
         componentState,
       );
     }
@@ -28,9 +28,9 @@ export class DigitalTwinService extends EventEmitter {
   }
 
   public getComponentState(
-    componentId: string,
+    componentKey: string,
   ): Record<string, TelemetryPoint> | null {
-    const componentState = this.state.get(componentId);
+    const componentState = this.state.get(componentKey);
 
     if (!componentState) {
       return null;

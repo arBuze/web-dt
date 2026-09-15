@@ -1,24 +1,14 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 
-import {
-  checkDatabaseConnection,
-  prisma,
-} from "./infrastructure/database/prisma.js";
+import { checkDatabaseConnection } from "./infrastructure/database/prisma.js";
+import { DigitalTwinService } from "./domain/digital-twin/digital-twin.service.js";
 
-import {
-  DigitalTwinService,
-} from "./domain/digital-twin/digital-twin.service.js";
+interface AppDependencies {
+  digitalTwin: DigitalTwinService;
+}
 
-import {
-  MqttService,
-} from "./integrations/mqtt/mqtt.service.js";
-
-import {
-  OpcUaService,
-} from "./integrations/opcua/opcua.service.js";
-
-export async function buildApp() {
+export async function buildApp(dependencies: AppDependencies) {
   const app = Fastify({
     logger: true,
   });
@@ -27,11 +17,7 @@ export async function buildApp() {
     origin: true,
   });
 
-  const digitalTwin = new DigitalTwinService();
-
-  const mqtt = new MqttService();
-
-  const opcUa = new OpcUaService();
+  const { digitalTwin } = dependencies;
 
   app.get(
     "/health",
@@ -45,14 +31,6 @@ export async function buildApp() {
             database
               ? "connected"
               : "disconnected",
-          mqtt:
-            mqtt.isConnected()
-              ? "connected"
-              : "disconnected",
-          opcUa:
-            opcUa.isConnected()
-              ? "connected"
-              : "disconnected",
         },
       };
     },
@@ -60,18 +38,14 @@ export async function buildApp() {
 
   app.get<{
     Params: {
-      componentId: string;
+      componentKey: string;
     };
   }>(
-    "/api/v1/components/:componentId/state",
-
-    async (
-      request,
-      reply,
-    ) => {
+    "/api/v1/components/:componentKey/state",
+    async (request, reply) => {
       const state =
         digitalTwin.getComponentState(
-          request.params.componentId,
+          request.params.componentKey,
         );
 
       if (!state) {
@@ -94,22 +68,5 @@ export async function buildApp() {
     },
   );
 
-  app.addHook(
-    "onClose",
-    async () => {
-      await Promise.allSettled([
-        mqtt.disconnect(),
-        opcUa.disconnect(),
-      ]);
-
-      await prisma.$disconnect();
-    },
-  );
-
-  return {
-    app,
-    digitalTwin,
-    mqtt,
-    opcUa,
-  };
+  return app;
 }

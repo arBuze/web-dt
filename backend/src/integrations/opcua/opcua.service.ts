@@ -6,8 +6,6 @@ import {
   TimestampsToReturn,
 } from "node-opcua";
 
-import { env } from "../../config/env.js";
-
 import type {
   IndustrialAdapter,
   TelemetryHandler,
@@ -32,7 +30,7 @@ export class OpcUaService implements IndustrialAdapter
     | ClientSubscription
     | null = null;
 
-  constructor() {
+  constructor(private readonly endpoint: string) {
     this.client =
       OPCUAClient.create({
         endpointMustExist: false,
@@ -46,7 +44,7 @@ export class OpcUaService implements IndustrialAdapter
 
   public async connect(): Promise<void> {
     await this.client.connect(
-      env.OPCUA_ENDPOINT,
+      this.endpoint,
     );
 
     this.session =
@@ -62,9 +60,7 @@ export class OpcUaService implements IndustrialAdapter
     handler: TelemetryHandler,
   ): Promise<void> {
     if (!this.session) {
-      throw new Error(
-        "OPC UA session is not active",
-      );
+      throw new Error("OPC UA session is not active");
     }
 
     this.subscription =
@@ -92,7 +88,7 @@ export class OpcUaService implements IndustrialAdapter
             attributeId: AttributeIds.Value,
           },
           {
-            samplingInterval: 500,
+            samplingInterval: binding.samplingIntervalMs ?? 500,
             discardOldest: true,
             queueSize: 10,
           },
@@ -104,7 +100,10 @@ export class OpcUaService implements IndustrialAdapter
         (dataValue) => {
           void handler({
             componentId: binding.componentId,
+            componentKey: binding.componentKey,
+            parameterId: binding.parameterId,
             parameterKey: binding.parameterKey,
+            bindingId: binding.id,
             value: dataValue.value.value as TelemetryValue,
             timestamp:
               dataValue.sourceTimestamp ??
