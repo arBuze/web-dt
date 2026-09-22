@@ -1,4 +1,4 @@
-import type { IndustrialAdapter } from "../integrations/common/industrial-adapter.js";
+import type { ControlValue, IndustrialAdapter, IndustrialWriteResult } from "../integrations/common/industrial-adapter.js";
 import type { ParameterBinding } from "../domain/digital-twin/digital-twin.types.js";
 import type { DataSourceRepository } from "../infrastructure/repositories/data-sourse.repository.js";
 import type { TelemetryService } from "../domain/telemetry/telemetry.service.js";
@@ -6,7 +6,10 @@ import type { TelemetryService } from "../domain/telemetry/telemetry.service.js"
 import { createIndustrialAdapter } from "../integrations/industrial-adapter.factory.js";
 
 export class DataAcquisitionService {
-  private readonly adapters: IndustrialAdapter[] = [];
+  private readonly adapters = new Map<
+    string,
+    IndustrialAdapter
+  >();
 
   constructor(
     private readonly dataSourceRepository: DataSourceRepository,
@@ -18,7 +21,7 @@ export class DataAcquisitionService {
       await this.dataSourceRepository
         .findEnabledWithBindings();
 
-    console.log( "[DataAcquisition] Sources:", sources.length);
+    console.log("[DataAcquisition] Sources:", sources.length);
 
     for (const source of sources) {
       console.log(
@@ -82,7 +85,7 @@ export class DataAcquisitionService {
           },
         );
 
-        this.adapters.push(adapter);
+        this.adapters.set(source.id, adapter);
       } catch (error) {
         console.error(
           `Cannot start data source ${source.key}`,
@@ -94,12 +97,40 @@ export class DataAcquisitionService {
 
   public async stop(): Promise<void> {
     await Promise.allSettled(
-      this.adapters.map(
-        (adapter) =>
-          adapter.disconnect(),
+      Array.from(this.adapters.values()).map(
+        (adapter) => adapter.disconnect(),
       ),
     );
 
-    this.adapters.length = 0;
+    this.adapters.clear();
+  }
+
+  public hasAdapter(dataSourceId: string): boolean {
+    const adapter = this.adapters.get(dataSourceId);
+
+    return (
+      adapter?.isConnected() ?? false
+    );
+  }
+
+  public async write(
+    binding: ParameterBinding,
+    value: ControlValue
+  ): Promise<IndustrialWriteResult> {
+    const adapter = this.adapters.get(binding.dataSourceId);
+
+    if (!adapter) {
+      throw new Error(
+        `Adapter for DataSource ${binding.dataSourceId} is not available`
+      );
+    }
+
+    if (!adapter.isConnected()) {
+      throw new Error(
+        `DataSource ${binding.dataSourceId} is disconnected`
+      );
+    }
+
+    return adapter.write(binding, value);
   }
 }

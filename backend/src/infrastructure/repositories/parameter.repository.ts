@@ -30,4 +30,34 @@ export class ParameterRepository {
       },
     });
   }
+
+  public async findControl(
+    componentKey: string,
+    parameterKey: string
+  ) {
+    return prisma.parameter.findFirst({
+      where: {
+        key: parameterKey,
+        isActive: true,
+        component: {
+          key: componentKey,
+          isActive: true,
+        }
+      },
+      include: {
+        component: true,
+        bindings: {
+          where: {
+            enabled: true,
+            dataSource: {
+              enabled: true,
+            },
+          },
+          include: {
+            dataSource: true,
+          }
+        },
+      },
+    });
+  }
 }

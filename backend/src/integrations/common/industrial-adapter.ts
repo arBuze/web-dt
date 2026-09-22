@@ -5,6 +5,17 @@ import type {
   TelemetryValue,
 } from "../../domain/digital-twin/digital-twin.types.js";
 
+export type ControlValue =
+  | boolean
+  | number
+  | string;
+
+export interface IndustrialWriteResult {
+  protocol: IndustrialProtocol;
+  status: "PUBLISHED" | "ACKNOWLEDGED";
+  details: string | null;
+}
+
 export type TelemetryHandler = (
   point: TelemetryPoint,
 ) => void | Promise<void>;
@@ -20,6 +31,6 @@ export interface IndustrialAdapter {
   ): Promise<void>;
   write(
     binding: ParameterBinding,
-    value: TelemetryValue,
-  ): Promise<void>;
+    value: ControlValue,
+  ): Promise<IndustrialWriteResult>;
 }

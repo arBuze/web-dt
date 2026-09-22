@@ -40,6 +40,37 @@ async function main() {
       },
     });
 
+  const speed =
+    await prisma.parameter.upsert({
+      where: {
+        componentId_key: {
+          componentId: machine.id,
+          key: "speed",
+        },
+      },
+      update: {
+        name: "Speed",
+        dataType: "DOUBLE",
+        unit: "rpm",
+        readable: true,
+        writable: true,
+        minValue: 0,
+        maxValue: 3000,
+        isActive: true,
+      },
+      create: {
+        componentId: machine.id,
+        key: "speed",
+        name: "Speed",
+        dataType: "DOUBLE",
+        unit: "rpm",
+        readable: true,
+        writable: true,
+        minValue: 0,
+        maxValue: 3000,
+      },
+    });
+
   const mqtt =
     await prisma.dataSource.upsert({
       where: {
@@ -56,6 +87,27 @@ async function main() {
         enabled: true,
       },
     });
+
+  await prisma.parameterBinding.upsert({
+    where: {
+      parameterId_dataSourceId_address: {
+        parameterId: speed.id,
+        dataSourceId: mqtt.id,
+        address: "factory/machine-01/speed",
+      },
+    },
+    update: {
+      enabled: true,
+      writeAddress: "factory/machine-01/commands/speed",
+    },
+    create: {
+      parameterId: speed.id,
+      dataSourceId: mqtt.id,
+      address: "factory/machine-01/speed",
+      writeAddress: "factory/machine-01/commands/speed",
+      enabled: true,
+    },
+  });
 
   await prisma.parameterBinding.upsert({
     where: {

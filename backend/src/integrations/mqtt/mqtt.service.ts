@@ -4,7 +4,9 @@ import {
 } from "mqtt";
 
 import type {
+  ControlValue,
   IndustrialAdapter,
+  IndustrialWriteResult,
   TelemetryHandler,
 } from "../common/industrial-adapter.js";
 
@@ -124,9 +126,9 @@ export class MqttService implements IndustrialAdapter
 
   public async write(
     binding: ParameterBinding,
-    value: TelemetryValue,
-  ): Promise<void> {
-    if (!this.client) {
+    value: ControlValue,
+  ): Promise<IndustrialWriteResult> {
+    if (!this.client?.connected) {
       throw new Error("MQTT client is not connected");
     }
 
@@ -145,6 +147,12 @@ export class MqttService implements IndustrialAdapter
         qos: 1,
       },
     );
+
+    return {
+      protocol: "MQTT",
+      status: "PUBLISHED",
+      details: null,
+    };
   }
 
   public async disconnect(): Promise<void> {
@@ -227,9 +235,7 @@ export class MqttService implements IndustrialAdapter
   }
 
   private assertNever(value: never): never {
-    throw new Error(
-      `Unsupported parameter data type: ${String(value)}`,
-    );
+    throw new Error(`Unsupported parameter data type: ${String(value)}`);
   }
 
   private parseValue(

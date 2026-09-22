@@ -2,17 +2,21 @@ import {
   AttributeIds,
   type ClientSession,
   ClientSubscription,
+  DataType,
   OPCUAClient,
   TimestampsToReturn,
 } from "node-opcua";
 
 import type {
+  ControlValue,
   IndustrialAdapter,
+  IndustrialWriteResult,
   TelemetryHandler,
 } from "../common/industrial-adapter.js";
 
 import type {
   ParameterBinding,
+  ParameterDataType,
   TelemetryValue,
 } from "../../domain/digital-twin/digital-twin.types.js";
 
@@ -47,8 +51,7 @@ export class OpcUaService implements IndustrialAdapter
       this.endpoint,
     );
 
-    this.session =
-      await this.client.createSession();
+    this.session = await this.client.createSession();
   }
 
   public isConnected(): boolean {
@@ -73,12 +76,9 @@ export class OpcUaService implements IndustrialAdapter
         priority: 10,
       });
 
-    const opcBindings =
-      bindings.filter(
-        (binding) =>
-          binding.protocol ===
-          "OPC_UA",
-      );
+    const opcBindings = bindings.filter(
+      (binding) => binding.protocol === "OPC_UA"
+    );
 
     for (const binding of opcBindings) {
       const monitoredItem =
@@ -117,13 +117,70 @@ export class OpcUaService implements IndustrialAdapter
     }
   }
 
+  private assertNever(value: never): never {
+    throw new Error(`Unsupported parameter data type: ${String(value)}`);
+  }
+
+  private toOpcUaDataType(type: ParameterDataType): DataType {
+    switch (type) {
+      case "BOOLEAN":
+        return DataType.Boolean;
+      case "INT32":
+        return DataType.Int32;
+      case "INT64":
+        return DataType.Int64;
+      case "FLOAT":
+        return DataType.Float;
+      case "DOUBLE":
+        return DataType.Double;
+      case "STRING":
+        return DataType.String;
+      case "JSON":
+        throw new Error("JSON OPC UA write is not supported");
+      default:
+        return this.assertNever(type);
+    }
+  }
+
   public async write(
-    _binding: ParameterBinding,
-    _value: TelemetryValue,
-  ): Promise<void> {
-    throw new Error(
-      "OPC UA write is not implemented yet",
-    );
+    binding: ParameterBinding,
+    value: ControlValue,
+  ): Promise<IndustrialWriteResult> {
+    if (!this.session) {
+      throw new Error("OPC UA seccion is not active");
+    }
+
+    if (!binding.writable) {
+      throw new Error(`Parameter ${binding.parameterKey} is read-only`);
+    }
+
+    const nodeId = binding.writeAddress ?? binding.address;
+    const dataType = this.toOpcUaDataType(binding.dataType);
+
+    const statusCode = await this.session.write({
+      nodeId,
+      attributeId: AttributeIds.Value,
+      value: {
+        value: {
+          dataType,
+          value,
+        },
+      },
+    });
+
+    const status = statusCode.toString();
+
+    console.log("[OPC UA] Write status: ", status);
+
+    if (!status.startsWith("Good")) {
+      throw new Error(`OPC UA write failed: ${status}`);
+    }
+    
+    return {
+      protocol: "OPC_UA",
+      status: "ACKNOWLEDGED",
+      details: status,
+    };
   }
 
   public async disconnect(): Promise<void> {

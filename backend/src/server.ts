@@ -9,6 +9,7 @@ import { DataAcquisitionService } from "./application/data-acquisition.service.j
 import { ParameterRepository } from "./infrastructure/repositories/parameter.repository.js";
 import { TelemetryHistoryService } from "./application/telemetry-history.service.js";
 import { RealtimeGateway } from "./api/realtime/realtime.gateway.js";
+import { ControlService } from "./application/control.service.js";
 
 async function main() {
   const digitalTwin = new DigitalTwinService();
@@ -27,10 +28,15 @@ async function main() {
     dataSourceRepository,
     telemetryService
   );
+  const controlService = new ControlService(
+    parameterRepository,
+    dataAcquisition
+  );
 
   const app = await buildApp({
     digitalTwin,
     telemetryHistory,
+    controlService,
   });
 
   const realtime = new RealtimeGateway(
