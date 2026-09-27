@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import type { ControlService } from "../../application/control.service.js";
+import type { ControlCommandRepository } from "../../infrastructure/repositories/control-command.repository.js";
 
 const bodySchema = z.object({
   value: z.union([
@@ -22,11 +23,10 @@ interface ControlParams {
 
 export async function registerControlRoutes(
   app: FastifyInstance,
-  controlService: ControlService
+  controlService: ControlService,
+  commandRepository: ControlCommandRepository
 ): Promise<void> {
-  app.put<{
-    Params: ControlParams;
-  }>(
+  app.put<{ Params: ControlParams; }>(
     "/api/v1/components/:componentKey/parameters/:parameterKey",
     async (
       request,
@@ -94,5 +94,10 @@ export async function registerControlRoutes(
         }
       }
     },
+  );
+
+  app.get(
+    "/api/v1/control-commands",
+    async () => commandRepository.findRecent(100)
   );
 }

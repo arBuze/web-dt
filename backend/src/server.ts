@@ -10,15 +10,22 @@ import { ParameterRepository } from "./infrastructure/repositories/parameter.rep
 import { TelemetryHistoryService } from "./application/telemetry-history.service.js";
 import { RealtimeGateway } from "./api/realtime/realtime.gateway.js";
 import { ControlService } from "./application/control.service.js";
+import { AlarmRepository } from "./infrastructure/repositories/alarm.repository.js";
+import { ControlCommandRepository } from "./infrastructure/repositories/control-command.repository.js";
+import { AlarmService } from "./domain/alarm/alarm.service.js";
 
 async function main() {
   const digitalTwin = new DigitalTwinService();
   const telemetryRepository = new TelemetryRepository();
   const parameterRepository = new ParameterRepository();
   const dataSourceRepository = new DataSourceRepository();
+  const alarmRepository = new AlarmRepository();
+  const alarmService = new AlarmService(alarmRepository);
+  const commandRepository = new ControlCommandRepository();
   const telemetryService = new TelemetryService(
     digitalTwin,
-    telemetryRepository
+    telemetryRepository,
+    alarmService
   );
   const telemetryHistory = new TelemetryHistoryService(
     parameterRepository,
@@ -30,18 +37,22 @@ async function main() {
   );
   const controlService = new ControlService(
     parameterRepository,
-    dataAcquisition
+    dataAcquisition,
+    commandRepository
   );
 
   const app = await buildApp({
     digitalTwin,
     telemetryHistory,
     controlService,
+    commandRepository,
+    alarmRepository,
   });
 
   const realtime = new RealtimeGateway(
     app,
     digitalTwin,
+    alarmService,
     env.FRONTEND_ORIGIN
   );
 

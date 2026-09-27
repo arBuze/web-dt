@@ -40,6 +40,32 @@ async function main() {
       },
     });
 
+  await prisma.alarmRule.upsert({
+    where: {
+      key: "machine-01-high-temperature",
+    },
+    update: {
+      parameterId: temperature.id,
+      condition: "ABOVE",
+      threshold: 80,
+      clearThreshold: 75,
+      severity: "CRITICAL",
+      message: "Machine temperature is above the allowed operating threshold",
+      enabled: true,
+    },
+    create: {
+      key: "machine-01-high-temperature",
+      name: "Machine 01 High Temperature",
+      parameterId: temperature.id,
+      condition: "ABOVE",
+      threshold: 80,
+      clearThreshold: 75,
+      severity: "CRITICAL",
+      message: "Machine temperature is above the allowed operating threshold",
+      enabled: true,
+    },
+  });
+
   const speed =
     await prisma.parameter.upsert({
       where: {

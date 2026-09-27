@@ -3,16 +3,22 @@ import cors from "@fastify/cors";
 
 import type { TelemetryHistoryService } from "./application/telemetry-history.service.js";
 import type { ControlService } from "./application/control.service.js";
+import type { ControlCommandRepository } from "./infrastructure/repositories/control-command.repository.js";
+import type { AlarmRepository } from "./infrastructure/repositories/alarm.repository.js";
 
 import { checkDatabaseConnection } from "./infrastructure/database/prisma.js";
 import { DigitalTwinService } from "./domain/digital-twin/digital-twin.service.js";
 import { registerTelemetryRoutes } from "./api/routes/telemetry.route.js";
 import { registerControlRoutes } from "./api/routes/control.route.js";
+import { registerAlarmRoutes } from "./api/routes/alarm.route.js";
+
 
 interface AppDependencies {
   digitalTwin: DigitalTwinService;
   telemetryHistory: TelemetryHistoryService;
   controlService: ControlService;
+  commandRepository: ControlCommandRepository;
+  alarmRepository: AlarmRepository;
 }
 
 export async function buildApp(dependencies: AppDependencies) {
@@ -24,7 +30,13 @@ export async function buildApp(dependencies: AppDependencies) {
     origin: true,
   });
 
-  const { digitalTwin } = dependencies;
+  const {
+    digitalTwin,
+    telemetryHistory,
+    controlService,
+    commandRepository,
+    alarmRepository,
+  } = dependencies;
 
   app.get(
     "/health",
@@ -77,11 +89,18 @@ export async function buildApp(dependencies: AppDependencies) {
 
   await registerTelemetryRoutes(
     app,
-    dependencies.telemetryHistory
+    telemetryHistory
   );
+
   await registerControlRoutes(
     app,
-    dependencies.controlService
+    controlService,
+    commandRepository
+  );
+
+  await registerAlarmRoutes(
+    app,
+    alarmRepository
   );
 
   return app;

@@ -117,8 +117,11 @@ model Parameter {
 
   telemetry TelemetryReading[]
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  controlCommands ControlCommand[]
+  alarms          Alarm[]
+  alarmRules      AlarmRule[]
 
   /// У одного Component не может быть двух temperature.
   @@unique([componentId, key])
@@ -165,8 +168,9 @@ model DataSource {
 
   bindings ParameterBinding[]
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  controlCommands ControlCommand[]
 
   @@index([protocol])
   @@map("data_sources")
@@ -216,8 +220,9 @@ model ParameterBinding {
 
   telemetry TelemetryReading[]
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  controlCommands ControlCommand[]
 
   @@unique([parameterId, dataSourceId, address])
   @@index([parameterId])
@@ -274,4 +279,128 @@ model TelemetryReading {
   @@index([parameterId, timestamp(sort: Desc)])
   @@index([bindingId, timestamp(sort: Desc)])
   @@map("telemetry_readings")
+}
+
+enum ControlCommandStatus {
+  REQUESTED
+  SUCCESS
+  FAILED
+  REJECTED
+}
+
+model ControlCommand {
+  id String @id @default(uuid()) @db.Uuid
+
+  requestedAt DateTime  @default(now()) @db.Timestamptz(6)
+  completedAt DateTime? @db.Timestamptz(6)
+
+  componentKey String @db.VarChar(100)
+  parameterKey String @db.VarChar(100)
+
+  parameterId  String? @db.Uuid
+  dataSourceId String? @db.Uuid
+  bindingId    String? @db.Uuid
+
+  dataSourceKey String? @db.VarChar(100)
+
+  protocol IndustrialProtocol?
+
+  /// boolean / number / string
+  requestedValue Json
+
+  status ControlCommandStatus @default(REQUESTED)
+
+  resultStatus String? @db.VarChar(100)
+
+  errorCode    String? @db.VarChar(100)
+  errorMessage String?
+
+  parameter Parameter? @relation(fields: [parameterId], references: [id], onDelete: SetNull)
+
+  dataSource DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+
+  binding ParameterBinding? @relation(fields: [bindingId], references: [id], onDelete: SetNull)
+
+  @@index([requestedAt(sort: Desc)])
+  @@index([componentKey, parameterKey, requestedAt(sort: Desc)])
+  @@index([status])
+  @@map("control_commands")
+}
+
+enum AlarmSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlarmCondition {
+  ABOVE
+  BELOW
+}
+
+enum AlarmStatus {
+  ACTIVE
+  CLEARED
+}
+
+model Alarm {
+  id String @id @default(uuid()) @db.Uuid
+
+  ruleId      String @db.Uuid
+  parameterId String @db.Uuid
+
+  status AlarmStatus @default(ACTIVE)
+
+  startedAt DateTime  @default(now()) @db.Timestamptz(6)
+  clearedAt DateTime? @db.Timestamptz(6)
+
+  triggerValue Float
+  clearValue   Float?
+
+  /// Снимки значений на момент возникновения
+  severity AlarmSeverity
+  message  String        @db.VarChar(500)
+
+  rule AlarmRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+
+  parameter Parameter @relation(fields: [parameterId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([ruleId, status])
+  @@index([startedAt(sort: Desc)])
+  @@map("alarms")
+}
+
+model AlarmRule {
+  id String @id @default(uuid()) @db.Uuid
+
+  key String @unique @db.VarChar(100)
+
+  name String @db.VarChar(255)
+
+  parameterId String @db.Uuid
+
+  condition AlarmCondition
+
+  /// Порог срабатывания
+  threshold Float
+
+  /// Порог снятия тревоги
+  clearThreshold Float?
+
+  severity AlarmSeverity
+
+  message String @db.VarChar(500)
+
+  enabled Boolean @default(true)
+
+  parameter Parameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+
+  alarms Alarm[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([parameterId])
+  @@map("alarm_rules")
 }

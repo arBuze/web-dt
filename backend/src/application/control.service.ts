@@ -8,6 +8,7 @@ import type {
 } from "../integrations/common/industrial-adapter.js";
 import type { DataAcquisitionService } from "./data-acquisition.service.js";
 import type { ParameterRepository } from "../infrastructure/repositories/parameter.repository.js";
+import type { ControlCommandRepository } from "../infrastructure/repositories/control-command.repository.js";
 
 export interface ControlRequest {
   componentKey: string;
@@ -28,6 +29,7 @@ export class ControlService {
   constructor(
     private readonly parameterRepository: ParameterRepository,
     private readonly dataAcquisition: DataAcquisitionService,
+    private readonly commandRepository: ControlCommandRepository
   ) {}
 
   public async write(request: ControlRequest): Promise<ControlResult> {
@@ -38,20 +40,56 @@ export class ControlService {
           request.parameterKey
         );
 
+    const command = 
+      await this.commandRepository
+        .createRequested({
+          componentKey: request.componentKey,
+          parameterKey: request.parameterKey,
+          parameterId: parameter?.id ?? null,
+          value: request.value,
+        });
+
     if (!parameter) {
+      await this.commandRepository.markRejected(
+        command.id,
+        "PARAMETER_NOT_FOUND",
+        "Parameter not found"
+      );
+
       throw new Error("PARAMETER_NOT_FOUND");
     }
 
     if (!parameter.writable) {
+      await this.commandRepository.markRejected(
+        command.id,
+        "PARAMETER_READ_ONLY",
+        "Parameter is read-only"
+      );
+
       throw new Error("PARAMETER_READ_ONLY");
     }
 
-    this.validateValue(
-      request.value,
-      parameter.dataType,
-      parameter.minValue,
-      parameter.maxValue
-    );
+    try {
+      this.validateValue(
+        request.value,
+        parameter.dataType,
+        parameter.minValue,
+        parameter.maxValue
+      );
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "VALIDATION_FAILED";
+
+      await this.commandRepository.markRejected(
+        command.id,
+        message,
+        message,
+      );
+
+      throw error;
+    }
+    
 
     let bindings = parameter.bindings.filter(
       (binding) => this.dataAcquisition.hasAdapter(binding.dataSourceId)
@@ -105,18 +143,43 @@ export class ControlService {
       deadband,
     };
 
-    const result = await this.dataAcquisition.write(
-      domainBinding,
-      request.value
-    );
+    try {
+      const result = await this.dataAcquisition.write(
+        domainBinding,
+        request.value
+      );
 
-    return {
-      componentKey: parameter.component.key,
-      parameterKey: parameter.key,
-      value: request.value,
-      dataSourceKey: dataSource.key,
-      result,
-    };
+      await this.commandRepository.markSuccess(
+        command.id,
+        {
+          dataSourceId,
+          dataSourceKey: dataSource.key,
+          bindingId: id,
+          protocol: dataSource.protocol,
+          resultStatus: result.status,
+        }
+      );
+
+      return {
+        componentKey: parameter.component.key,
+        parameterKey: parameter.key,
+        value: request.value,
+        dataSourceKey: dataSource.key,
+        result,
+      };
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Unknown control error";
+
+      await this.commandRepository.markFailed(
+        command.id,
+        "INDUSTRIAL_WRITE_FAILED",
+        message
+      );
+
+      throw error;
+    }
   }
 
   private assertNever(value: never): never {
