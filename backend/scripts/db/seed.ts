@@ -97,6 +97,162 @@ async function main() {
       },
     });
 
+  const machineState =
+    await prisma.parameter.upsert({
+      where: {
+        componentId_key: {
+          componentId:
+            machine.id,
+
+          key:
+            "state",
+        },
+      },
+
+      update: {
+        name:
+          "Machine State",
+
+        dataType:
+          "STRING",
+
+        readable:
+          true,
+
+        writable:
+          false,
+
+        isActive:
+          true,
+      },
+
+      create: {
+        componentId:
+          machine.id,
+
+        key:
+          "state",
+
+        name:
+          "Machine State",
+
+        dataType:
+          "STRING",
+
+        readable:
+          true,
+
+        writable:
+          false,
+      },
+    });
+
+  const totalCount =
+    await prisma.parameter.upsert({
+      where: {
+        componentId_key: {
+          componentId:
+            machine.id,
+
+          key:
+            "total-count",
+        },
+      },
+
+      update: {
+        name:
+          "Total Produced",
+
+        dataType:
+          "INT32",
+
+        readable:
+          true,
+
+        writable:
+          false,
+
+        isActive:
+          true,
+      },
+
+      create: {
+        componentId:
+          machine.id,
+
+        key:
+          "total-count",
+
+        name:
+          "Total Produced",
+
+        dataType:
+          "INT32",
+
+        unit:
+          "pcs",
+
+        readable:
+          true,
+
+        writable:
+          false,
+      },
+    });
+
+  const goodCount =
+    await prisma.parameter.upsert({
+      where: {
+        componentId_key: {
+          componentId:
+            machine.id,
+
+          key:
+            "good-count",
+        },
+      },
+
+      update: {
+        name:
+          "Good Produced",
+
+        dataType:
+          "INT32",
+
+        readable:
+          true,
+
+        writable:
+          false,
+
+        isActive:
+          true,
+      },
+
+      create: {
+        componentId:
+          machine.id,
+
+        key:
+          "good-count",
+
+        name:
+          "Good Produced",
+
+        dataType:
+          "INT32",
+
+        unit:
+          "pcs",
+
+        readable:
+          true,
+
+        writable:
+          false,
+      },
+    });
+
   const mqtt =
     await prisma.dataSource.upsert({
       where: {
@@ -151,6 +307,86 @@ async function main() {
       dataSourceId: mqtt.id,
       address: "factory/machine-01/temperature",
       enabled: true,
+    },
+  });
+
+  await prisma.parameterBinding.upsert({
+    where: {
+      parameterId_dataSourceId_address: {
+        parameterId: machineState.id,
+        dataSourceId: mqtt.id,
+        address: "factory/machine-01/state",
+      },
+    },
+    update: {
+      enabled: true,
+    },
+    create: {
+      parameterId: machineState.id,
+      dataSourceId: mqtt.id,
+      address: "factory/machine-01/state",
+      enabled: true,
+    },
+  });
+
+  await prisma.parameterBinding.upsert({
+    where: {
+      parameterId_dataSourceId_address: {
+        parameterId: totalCount.id,
+        dataSourceId: mqtt.id,
+        address: "factory/machine-01/total-count",
+      },
+    },
+    update: {
+      enabled: true,
+    },
+    create: {
+      parameterId: totalCount.id,
+      dataSourceId: mqtt.id,
+      address: "factory/machine-01/total-count",
+      enabled: true,
+    },
+  });
+
+  await prisma.parameterBinding.upsert({
+    where: {
+      parameterId_dataSourceId_address: {
+        parameterId: goodCount.id,
+        dataSourceId: mqtt.id,
+        address: "factory/machine-01/good-count",
+      },
+    },
+    update: {
+      enabled: true,
+    },
+    create: {
+      parameterId: goodCount.id,
+      dataSourceId: mqtt.id,
+      address: "factory/machine-01/good-count",
+      enabled: true,
+    },
+  });
+
+  await prisma.kpiConfig.upsert({
+    where: {
+      componentId: machine.id,
+    },
+    update: {
+      stateParameterId: machineState.id,
+      totalCountParameterId: totalCount.id,
+      goodCountParameterId: goodCount.id,
+      runningStateValue: "RUNNING",
+      idealCycleTimeSeconds: 1,
+      enabled: true,
+    },
+    create: {
+      componentId: machine.id,
+      stateParameterId: machineState.id,
+      totalCountParameterId: totalCount.id,
+      goodCountParameterId: goodCount.id,
+      runningStateValue: "RUNNING",
+      idealCycleTimeSeconds: 1,
+      enabled:true,
     },
   });
 

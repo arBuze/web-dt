@@ -5,13 +5,14 @@ import type { TelemetryHistoryService } from "./application/telemetry-history.se
 import type { ControlService } from "./application/control.service.js";
 import type { ControlCommandRepository } from "./infrastructure/repositories/control-command.repository.js";
 import type { AlarmRepository } from "./infrastructure/repositories/alarm.repository.js";
+import type { KpiService } from "./application/kpi.service.js";
 
 import { checkDatabaseConnection } from "./infrastructure/database/prisma.js";
 import { DigitalTwinService } from "./domain/digital-twin/digital-twin.service.js";
 import { registerTelemetryRoutes } from "./api/routes/telemetry.route.js";
 import { registerControlRoutes } from "./api/routes/control.route.js";
 import { registerAlarmRoutes } from "./api/routes/alarm.route.js";
-
+import { registerKpiRoutes } from "./api/routes/kpi.route.js";
 
 interface AppDependencies {
   digitalTwin: DigitalTwinService;
@@ -19,6 +20,7 @@ interface AppDependencies {
   controlService: ControlService;
   commandRepository: ControlCommandRepository;
   alarmRepository: AlarmRepository;
+  kpiService: KpiService;
 }
 
 export async function buildApp(dependencies: AppDependencies) {
@@ -101,6 +103,11 @@ export async function buildApp(dependencies: AppDependencies) {
   await registerAlarmRoutes(
     app,
     alarmRepository
+  );
+
+  await registerKpiRoutes(
+    app,
+    dependencies.kpiService
   );
 
   return app;

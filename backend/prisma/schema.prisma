@@ -70,8 +70,9 @@ model Component {
 
   parameters Parameter[]
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+  kpiConfig KpiConfig?
 
   @@index([parentId])
   @@index([type])
@@ -122,6 +123,10 @@ model Parameter {
   controlCommands ControlCommand[]
   alarms          Alarm[]
   alarmRules      AlarmRule[]
+
+  kpiStateConfigs      KpiConfig[] @relation("KpiStateParameter")
+  kpiTotalCountConfigs KpiConfig[] @relation("KpiTotalCountParameter")
+  kpiGoodCountConfigs  KpiConfig[] @relation("KpiGoodCountParameter")
 
   /// У одного Component не может быть двух temperature.
   @@unique([componentId, key])
@@ -403,4 +408,35 @@ model AlarmRule {
 
   @@index([parameterId])
   @@map("alarm_rules")
+}
+
+model KpiConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  componentId String @unique @db.Uuid
+
+  stateParameterId      String @db.Uuid
+  totalCountParameterId String @db.Uuid
+  goodCountParameterId  String @db.Uuid
+
+  /// Какое строковое значение означает работу оборудования
+  runningStateValue String @default("RUNNING") @db.VarChar(100)
+
+  /// Идеальное время изготовления одной единицы продукции
+  idealCycleTimeSeconds Float
+
+  enabled Boolean @default(true)
+
+  component Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  stateParameter Parameter @relation("KpiStateParameter", fields: [stateParameterId], references: [id], onDelete: Restrict)
+
+  totalCountParameter Parameter @relation("KpiTotalCountParameter", fields: [totalCountParameterId], references: [id], onDelete: Restrict)
+
+  goodCountParameter Parameter @relation("KpiGoodCountParameter", fields: [goodCountParameterId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("kpi_configs")
 }

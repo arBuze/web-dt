@@ -13,6 +13,8 @@ import { ControlService } from "./application/control.service.js";
 import { AlarmRepository } from "./infrastructure/repositories/alarm.repository.js";
 import { ControlCommandRepository } from "./infrastructure/repositories/control-command.repository.js";
 import { AlarmService } from "./domain/alarm/alarm.service.js";
+import { KpiService } from "./application/kpi.service.js";
+import { KpiRepository } from "./infrastructure/repositories/kpi.repository.js";
 
 async function main() {
   const digitalTwin = new DigitalTwinService();
@@ -20,8 +22,10 @@ async function main() {
   const parameterRepository = new ParameterRepository();
   const dataSourceRepository = new DataSourceRepository();
   const alarmRepository = new AlarmRepository();
-  const alarmService = new AlarmService(alarmRepository);
   const commandRepository = new ControlCommandRepository();
+  const kpiRepository = new KpiRepository();
+
+  const alarmService = new AlarmService(alarmRepository);
   const telemetryService = new TelemetryService(
     digitalTwin,
     telemetryRepository,
@@ -40,6 +44,7 @@ async function main() {
     dataAcquisition,
     commandRepository
   );
+  const kpiService = new KpiService(kpiRepository);
 
   const app = await buildApp({
     digitalTwin,
@@ -47,6 +52,7 @@ async function main() {
     controlService,
     commandRepository,
     alarmRepository,
+    kpiService,
   });
 
   const realtime = new RealtimeGateway(
